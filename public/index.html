@@ -1,0 +1,510 @@
+<!DOCTYPE html>
+<html lang="my">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>CKLottery</title>
+
+  <style>
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      font-family: Arial, "Noto Sans Myanmar", sans-serif;
+    }
+
+    body {
+      min-height: 100vh;
+      background: #080c15;
+      color: white;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      padding: 20px;
+    }
+
+    .box {
+      width: 100%;
+      max-width: 390px;
+      background: #111827;
+      border: 1px solid #293548;
+      border-radius: 22px;
+      padding: 24px;
+      text-align: center;
+    }
+
+    h1 {
+      color: #f97316;
+      margin-bottom: 8px;
+    }
+
+    .sub {
+      color: #9ca3af;
+      margin-bottom: 20px;
+      font-size: 14px;
+    }
+
+    input {
+      width: 100%;
+      padding: 14px;
+      margin: 7px 0;
+      border-radius: 12px;
+      border: 1px solid #374151;
+      background: #0b1220;
+      color: white;
+      outline: none;
+      text-align: center;
+      font-size: 15px;
+    }
+
+    button {
+      width: 100%;
+      padding: 14px;
+      margin-top: 10px;
+      border: 0;
+      border-radius: 12px;
+      background: linear-gradient(135deg,#f59e0b,#ea580c);
+      color: white;
+      font-weight: 900;
+      font-size: 15px;
+      cursor: pointer;
+    }
+
+    .toggle {
+      background: transparent;
+      color: #60a5fa;
+      margin-top: 8px;
+    }
+
+    #message {
+      min-height: 22px;
+      margin-top: 12px;
+      color: #fbbf24;
+      font-size: 14px;
+    }
+
+    #home {
+      display: none;
+    }
+
+    .balance {
+      margin: 20px 0;
+      padding: 18px;
+      border-radius: 16px;
+      background: #0b1220;
+      border: 1px solid #334155;
+    }
+
+    .unit {
+      color: #fbbf24;
+      font-size: 28px;
+      font-weight: 900;
+      margin-top: 8px;
+    }
+
+    .admin {
+      color: #fb923c;
+      font-weight: bold;
+    }
+
+    .logout {
+      background: #374151;
+    }
+  </style>
+</head>
+
+<body>
+
+  <!-- LOGIN / REGISTER -->
+
+  <div class="box" id="authBox">
+
+    <h1>👑 CKLOTTERY</h1>
+
+    <div class="sub" id="authTitle">
+      Login ဝင်မည်
+    </div>
+
+    <input
+      id="phone"
+      type="text"
+      placeholder="ဖုန်းနံပါတ်"
+    >
+
+    <input
+      id="password"
+      type="password"
+      placeholder="စကားဝှက်"
+    >
+
+    <button onclick="submitAuth()" id="submitBtn">
+      Login ဝင်မည်
+    </button>
+
+    <button
+      class="toggle"
+      onclick="toggleMode()"
+      id="toggleBtn"
+    >
+      အကောင့်အသစ်ဖွင့်မည်
+    </button>
+
+    <div id="message"></div>
+
+  </div>
+
+
+  <!-- HOME -->
+
+  <div class="box" id="home">
+
+    <h1>👑 CKLOTTERY</h1>
+
+    <div class="sub">
+      အကောင့်ဝင်ရောက်ပြီးပါပြီ
+    </div>
+
+    <div id="userInfo"></div>
+
+    <div class="balance">
+
+      <div>
+        လက်ကျန် Demo Unit
+      </div>
+
+      <div class="unit" id="unit">
+        0
+      </div>
+
+    </div>
+
+    <button
+      class="logout"
+      onclick="logout()"
+    >
+      Logout
+    </button>
+
+  </div>
+
+
+<script>
+
+let registerMode = false;
+let currentUser = null;
+
+
+/* =========================
+   MESSAGE
+========================= */
+
+function message(text) {
+
+  document.getElementById(
+    "message"
+  ).textContent = text;
+
+}
+
+
+/* =========================
+   LOGIN / REGISTER TOGGLE
+========================= */
+
+function toggleMode() {
+
+  registerMode = !registerMode;
+
+  if (registerMode) {
+
+    document.getElementById(
+      "authTitle"
+    ).textContent =
+      "အကောင့်အသစ်ဖွင့်မည်";
+
+    document.getElementById(
+      "submitBtn"
+    ).textContent =
+      "Register ပြုလုပ်မည်";
+
+    document.getElementById(
+      "toggleBtn"
+    ).textContent =
+      "အကောင့်ရှိပြီးသားပါ — Login ဝင်မည်";
+
+  } else {
+
+    document.getElementById(
+      "authTitle"
+    ).textContent =
+      "Login ဝင်မည်";
+
+    document.getElementById(
+      "submitBtn"
+    ).textContent =
+      "Login ဝင်မည်";
+
+    document.getElementById(
+      "toggleBtn"
+    ).textContent =
+      "အကောင့်အသစ်ဖွင့်မည်";
+
+  }
+
+  message("");
+
+}
+
+
+/* =========================
+   SUBMIT
+========================= */
+
+async function submitAuth() {
+
+  const phone =
+    document.getElementById(
+      "phone"
+    ).value.trim();
+
+  const password =
+    document.getElementById(
+      "password"
+    ).value.trim();
+
+
+  if (!phone || !password) {
+
+    message(
+      "ဖုန်းနံပါတ်နဲ့ Password ဖြည့်ပါ"
+    );
+
+    return;
+
+  }
+
+
+  message("လုပ်ဆောင်နေသည်...");
+
+
+  const endpoint =
+    registerMode
+      ? "/api/register"
+      : "/api/login";
+
+
+  try {
+
+    const response =
+      await fetch(
+        endpoint,
+        {
+          method: "POST",
+
+          headers: {
+            "Content-Type":
+              "application/json"
+          },
+
+          body: JSON.stringify({
+            phone,
+            password
+          })
+        }
+      );
+
+
+    const data =
+      await response.json();
+
+
+    if (!data.success) {
+
+      message(
+        data.message ||
+        "လုပ်ဆောင်၍ မရပါ"
+      );
+
+      return;
+
+    }
+
+
+    currentUser = data.user;
+
+
+    localStorage.setItem(
+      "user_phone",
+      currentUser.phone
+    );
+
+
+    showHome();
+
+  }
+
+  catch (error) {
+
+    console.error(error);
+
+    message(
+      "Server နှင့် ချိတ်ဆက်၍ မရပါ"
+    );
+
+  }
+
+}
+
+
+/* =========================
+   SHOW HOME
+========================= */
+
+function showHome() {
+
+  document.getElementById(
+    "authBox"
+  ).style.display = "none";
+
+
+  document.getElementById(
+    "home"
+  ).style.display = "block";
+
+
+  document.getElementById(
+    "unit"
+  ).textContent =
+    Number(
+      currentUser.unit || 0
+    ).toLocaleString();
+
+
+  if (
+    currentUser.role === "admin"
+  ) {
+
+    document.getElementById(
+      "userInfo"
+    ).innerHTML = `
+      <div class="admin">
+        👑 ADMIN ACCOUNT
+      </div>
+      <div style="margin-top:6px;color:#9ca3af">
+        ${currentUser.phone}
+      </div>
+    `;
+
+  } else {
+
+    document.getElementById(
+      "userInfo"
+    ).innerHTML = `
+      <div>
+        👤 ${currentUser.phone}
+      </div>
+
+      <div style="
+        margin-top:6px;
+        color:#64748b;
+        font-size:13px;
+      ">
+        User ID: ${currentUser.id}
+      </div>
+    `;
+
+  }
+
+}
+
+
+/* =========================
+   LOGOUT
+========================= */
+
+function logout() {
+
+  localStorage.removeItem(
+    "user_phone"
+  );
+
+  currentUser = null;
+
+  document.getElementById(
+    "home"
+  ).style.display = "none";
+
+
+  document.getElementById(
+    "authBox"
+  ).style.display = "block";
+
+
+  document.getElementById(
+    "phone"
+  ).value = "";
+
+  document.getElementById(
+    "password"
+  ).value = "";
+
+  message("");
+
+}
+
+
+/* =========================
+   AUTO LOGIN
+========================= */
+
+async function autoLogin() {
+
+  const phone =
+    localStorage.getItem(
+      "user_phone"
+    );
+
+
+  if (!phone) return;
+
+
+  try {
+
+    const response =
+      await fetch(
+        "/api/user/" +
+        encodeURIComponent(phone)
+      );
+
+
+    const data =
+      await response.json();
+
+
+    if (data.success) {
+
+      currentUser = data.user;
+
+      showHome();
+
+    }
+
+  }
+
+  catch (error) {
+
+    console.log(
+      "Auto login unavailable"
+    );
+
+  }
+
+}
+
+
+autoLogin();
+
+</script>
+
+</body>
+</html>
