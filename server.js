@@ -13,10 +13,9 @@ const io = socketIo(server);
 const PORT = process.env.PORT || 3000;
 
 // Database Setup
-const db = new sqlite3.Database('./game.db');
+const db = new sqlite3.Database('./ck_lottery.db');
 
 db.serialize(() => {
-  // Users Table
   db.run(`CREATE TABLE IF NOT EXISTS users (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     player_id TEXT UNIQUE,
@@ -26,7 +25,6 @@ db.serialize(() => {
     balance REAL DEFAULT 0.0
   )`);
 
-  // Transactions Table
   db.run(`CREATE TABLE IF NOT EXISTS transactions (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     user_id INTEGER,
@@ -36,15 +34,14 @@ db.serialize(() => {
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP
   )`);
 
-  // Game History Table
   db.run(`CREATE TABLE IF NOT EXISTS game_history (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     round_id INTEGER,
-    result TEXT,
+    result INTEGER,
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP
   )`);
 
-  // Admin Account (Initial Setup)
+  // Default Admin Creation
   db.get("SELECT * FROM users WHERE username = 'admin'", async (err, row) => {
     if (!row) {
       const hash = await bcrypt.hash('admin123', 10);
@@ -54,31 +51,26 @@ db.serialize(() => {
   });
 });
 
-// Middlewares
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.use(express.static(path.join(__dirname, 'public')));
 
 const sessionMiddleware = session({
-  secret: 'demo_secret_key_12345',
+  secret: 'ck_lottery_secret_key_99',
   resave: false,
   saveUninitialized: false
 });
 app.use(sessionMiddleware);
 
-// Socket.io Middleware for Session Access
 io.use((socket, next) => {
   sessionMiddleware(socket.request, {}, next);
 });
 
-// Function to Generate Unique 6-Digit Player ID
 function generatePlayerID() {
-  return 'PID-' + Math.floor(100000 + Math.random() * 900000);
+  return 'CK-' + Math.floor(100000 + Math.random() * 900000);
 }
 
 // REST APIs
-
-// Register
 app.post('/api/register', async (req, res) => {
   const { username, password } = req.body;
   if (!username || !password) return res.status(400).json({ error: 'Username and Password required' });
@@ -90,14 +82,13 @@ app.post('/api/register', async (req, res) => {
     db.run("INSERT INTO users (player_id, username, password) VALUES (?, ?, ?)",
       [playerId, username, hash], function(err) {
         if (err) return res.status(400).json({ error: 'Username already exists' });
-        res.json({ success: true, message: 'Account registered successfully!' });
+        res.json({ success: true, message: 'Registered successfully!' });
       });
   } catch (e) {
     res.status(500).json({ error: 'Server error' });
   }
 });
 
-// Login
 app.post('/api/login', (req, res) => {
   const { username, password } = req.body;
   db.get("SELECT * FROM users WHERE username = ?", [username], async (err, user) => {
@@ -112,13 +103,11 @@ app.post('/api/login', (req, res) => {
   });
 });
 
-// Logout
 app.post('/api/logout', (req, res) => {
   req.session.destroy();
   res.json({ success: true });
 });
 
-// Get Current User Profile
 app.get('/api/me', (req, res) => {
   if (!req.session.userId) return res.status(401).json({ error: 'Unauthorized' });
 
@@ -128,7 +117,6 @@ app.get('/api/me', (req, res) => {
   });
 });
 
-// Request Deposit / Withdraw
 app.post('/api/request-transaction', (req, res) => {
   if (!req.session.userId) return res.status(401).json({ error: 'Unauthorized' });
 
@@ -138,9 +126,7 @@ app.post('/api/request-transaction', (req, res) => {
 
   if (type === 'withdraw') {
     db.get("SELECT balance FROM users WHERE id = ?", [req.session.userId], (err, user) => {
-      if (user.balance < parsedAmount) {
-        return res.status(400).json({ error: 'Insufficient balance' });
-      }
+      if (user.balance < parsedAmount) return res.status(400).json({ error: 'Insufficient balance' });
       createTx();
     });
   } else {
@@ -156,7 +142,6 @@ app.post('/api/request-transaction', (req, res) => {
   }
 });
 
-// User History
 app.get('/api/my-history', (req, res) => {
   if (!req.session.userId) return res.status(401).json({ error: 'Unauthorized' });
 
@@ -165,14 +150,12 @@ app.get('/api/my-history', (req, res) => {
   });
 });
 
-// --- ADMIN ENDPOINTS ---
-
+// Admin APIs
 function isAdmin(req, res, next) {
   if (req.session.role === 'admin') return next();
   res.status(403).json({ error: 'Admin access required' });
 }
 
-// Get Pending Transactions
 app.get('/api/admin/pending-transactions', isAdmin, (req, res) => {
   db.all(`SELECT t.id, u.username, u.player_id, t.type, t.amount, t.created_at 
           FROM transactions t JOIN users u ON t.user_id = u.id 
@@ -181,12 +164,11 @@ app.get('/api/admin/pending-transactions', isAdmin, (req, res) => {
   });
 });
 
-// Approve Transaction
 app.post('/api/admin/approve-transaction', isAdmin, (req, res) => {
   const { txId } = req.body;
 
   db.get("SELECT * FROM transactions WHERE id = ? AND status = 'pending'", [txId], (err, tx) => {
-    if (!tx) return res.status(404).json({ error: 'Transaction not found or already processed' });
+    if (!tx) return res.status(404).json({ error: 'Transaction not found or processed' });
 
     db.get("SELECT balance FROM users WHERE id = ?", [tx.user_id], (err, user) => {
       let newBalance = user.balance;
@@ -194,9 +176,7 @@ app.post('/api/admin/approve-transaction', isAdmin, (req, res) => {
       if (tx.type === 'deposit') {
         newBalance += tx.amount;
       } else if (tx.type === 'withdraw') {
-        if (user.balance < tx.amount) {
-          return res.status(400).json({ error: 'User has insufficient balance now' });
-        }
+        if (user.balance < tx.amount) return res.status(400).json({ error: 'User balance is insufficient' });
         newBalance -= tx.amount;
       }
 
@@ -209,7 +189,6 @@ app.post('/api/admin/approve-transaction', isAdmin, (req, res) => {
   });
 });
 
-// Direct Unit Transfer by Admin
 app.post('/api/admin/direct-transfer', isAdmin, (req, res) => {
   const { playerId, amount } = req.body;
   const parsedAmount = parseFloat(amount);
@@ -218,7 +197,7 @@ app.post('/api/admin/direct-transfer', isAdmin, (req, res) => {
     if (!targetUser) return res.status(404).json({ error: 'Player ID not found' });
 
     const newBalance = targetUser.balance + parsedAmount;
-    if (newBalance < 0) return res.status(400).json({ error: 'Balance cannot go below zero' });
+    if (newBalance < 0) return res.status(400).json({ error: 'Balance cannot be negative' });
 
     db.run("UPDATE users SET balance = ? WHERE id = ?", [newBalance, targetUser.id], () => {
       db.run("INSERT INTO transactions (user_id, type, amount, status) VALUES (?, ?, ?, 'approved')",
@@ -228,51 +207,50 @@ app.post('/api/admin/direct-transfer', isAdmin, (req, res) => {
   });
 });
 
-// --- SERVER-SIDE GAME ENGINE ---
+// --- CK-LOTTERY 1-MIN ENGINE ---
 
-let gameRound = 1;
-let timer = 15; // 15 seconds per round
-let currentBets = []; // { userId, choice ('RED'|'BLUE'), amount }
+let gameRound = 1001;
+let timer = 60; // 60 Seconds Timer
+let currentBets = []; // { userId, number (0-9), amount }
 
 setInterval(() => {
   timer--;
 
   if (timer <= 0) {
-    // Resolve Game Round
-    const result = Math.random() < 0.5 ? 'RED' : 'BLUE';
-    
+    // Generate Winning Number (0 to 9)
+    const resultNumber = Math.floor(Math.random() * 10);
+
     // Process Bets
     currentBets.forEach(bet => {
-      const isWin = bet.choice === result;
-      const winAmount = isWin ? bet.amount * 2 : 0;
+      const isWin = bet.number === resultNumber;
+      const winAmount = isWin ? bet.amount * 9 : 0; // 9x Payout
 
       if (isWin) {
         db.run("UPDATE users SET balance = balance + ? WHERE id = ?", [winAmount, bet.userId]);
       }
 
-      // Send result popup to individual users
       io.to(`user_${bet.userId}`).emit('roundResult', {
         win: isWin,
         amount: isWin ? winAmount : bet.amount,
-        resultChoice: result
+        selectedNumber: bet.number,
+        winningNumber: resultNumber
       });
     });
 
-    db.run("INSERT INTO game_history (round_id, result) VALUES (?, ?)", [gameRound, result]);
+    db.run("INSERT INTO game_history (round_id, result) VALUES (?, ?)", [gameRound, resultNumber]);
 
-    io.emit('gameFinished', { round: gameRound, result });
+    io.emit('gameFinished', { round: gameRound, result: resultNumber });
 
-    // Reset for next round
+    // Reset Round
     gameRound++;
-    timer = 15;
+    timer = 60;
     currentBets = [];
   }
 
   io.emit('timerUpdate', { round: gameRound, timer });
 }, 1000);
 
-// --- SOCKET.IO CONNECTIONS ---
-
+// Socket.io
 io.on('connection', (socket) => {
   const sessionData = socket.request.session;
   if (sessionData && sessionData.userId) {
@@ -283,13 +261,15 @@ io.on('connection', (socket) => {
     const userId = sessionData ? sessionData.userId : null;
     if (!userId) return socket.emit('errorMsg', 'Please log in first.');
 
-    if (timer <= 3) return socket.emit('errorMsg', 'Betting closed for this round!');
+    // Betting closes at last 10 seconds
+    if (timer <= 10) return socket.emit('errorMsg', 'Betting is closed for this round!');
 
-    const { choice, amount } = data;
+    const { number, amount } = data;
+    const betNumber = parseInt(number);
     const betAmount = parseFloat(amount);
 
-    if (!['RED', 'BLUE'].includes(choice) || isNaN(betAmount) || betAmount <= 0) {
-      return socket.emit('errorMsg', 'Invalid bet parameters.');
+    if (isNaN(betNumber) || betNumber < 0 || betNumber > 9 || isNaN(betAmount) || betAmount <= 0) {
+      return socket.emit('errorMsg', 'Invalid number (0-9) or amount.');
     }
 
     db.get("SELECT balance FROM users WHERE id = ?", [userId], (err, user) => {
@@ -297,16 +277,15 @@ io.on('connection', (socket) => {
         return socket.emit('errorMsg', 'Insufficient Unit Balance!');
       }
 
-      // Deduct balance immediately upon placing bet
       db.run("UPDATE users SET balance = balance - ? WHERE id = ?", [betAmount, userId], () => {
-        currentBets.push({ userId, choice, amount: betAmount });
-        socket.emit('betConfirmed', { choice, amount: betAmount });
+        currentBets.push({ userId, number: betNumber, amount: betAmount });
+        socket.emit('betConfirmed', { number: betNumber, amount: betAmount });
       });
     });
   });
 });
 
 server.listen(PORT, () => {
-  console.log(`Server running on port ${PORT}`);
+  console.log(`CK-Lottery Server running on port ${PORT}`);
 });
 
