@@ -3,44 +3,54 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Realtime Game Demo System</title>
+  <title>CK-Lottery 1-Min System</title>
   <script src="/socket.io/socket.io.js"></script>
   <style>
-    body { font-family: Arial, sans-serif; background: #121212; color: #fff; margin: 0; padding: 15px; }
-    .card { background: #1e1e1e; padding: 15px; margin-bottom: 15px; border-radius: 8px; border: 1px solid #333; }
-    input, button, select { padding: 8px 12px; margin: 4px; border-radius: 4px; border: 1px solid #444; background: #222; color: #fff; }
-    button { cursor: pointer; background: #007bff; border: none; }
-    button:hover { background: #0056b3; }
-    .btn-red { background: #dc3545; }
-    .btn-blue { background: #0d6efd; }
+    body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background: #0f172a; color: #f8fafc; margin: 0; padding: 15px; }
+    .card { background: #1e293b; padding: 15px; margin-bottom: 15px; border-radius: 10px; border: 1px solid #334155; }
+    input, button, select { padding: 10px 14px; margin: 5px 0; border-radius: 6px; border: 1px solid #475569; background: #0f172a; color: #fff; width: calc(100% - 30px); }
+    button { cursor: pointer; background: #2563eb; font-weight: bold; border: none; width: 100%; }
+    button:hover { background: #1d4ed8; }
     .hidden { display: none; }
     table { width: 100%; border-collapse: collapse; margin-top: 10px; }
-    th, td { border: 1px solid #444; padding: 8px; text-align: left; }
-    .popup { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.8); display: flex; align-items: center; justify-content: center; }
-    .popup-content { background: #222; padding: 25px; border-radius: 8px; text-align: center; border: 2px solid #555; }
+    th, td { border: 1px solid #334155; padding: 8px; text-align: center; }
+
+    /* Number Grid Style */
+    .number-grid { display: grid; grid-template-columns: repeat(5, 1fr); gap: 10px; margin: 15px 0; }
+    .num-btn { background: #334155; color: #fff; padding: 15px 0; font-size: 18px; font-weight: bold; border-radius: 8px; border: 2px solid transparent; cursor: pointer; }
+    .num-btn.selected { border-color: #38bdf8; background: #0284c7; }
+
+    .popup { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.85); display: flex; align-items: center; justify-content: center; }
+    .popup-content { background: #1e293b; padding: 30px; border-radius: 12px; text-align: center; border: 2px solid #475569; max-width: 300px; width: 100%; }
   </style>
 </head>
 <body>
 
-  <h1>🎮 Realtime Game System</h1>
+  <h2 style="text-align: center; color: #38bdf8;">🎰 CK-Lottery (1-Min)</h2>
 
   <!-- Auth Panel -->
   <div id="authPanel" class="card">
     <h3>Register / Login</h3>
     <input type="text" id="username" placeholder="Username">
     <input type="password" id="password" placeholder="Password">
-    <button onclick="register()">Register</button>
-    <button onclick="login()">Login</button>
+    <button onclick="register()" style="margin-top: 10px;">Register</button>
+    <button onclick="login()" style="background: #059669; margin-top: 5px;">Login</button>
   </div>
 
   <!-- User Dashboard -->
   <div id="userPanel" class="card hidden">
-    <h3>Welcome, <span id="dispUser"></span></h3>
-    <p>Player ID: <strong id="dispPlayerId" style="color: #00f2fe;"></strong></p>
-    <p>Unit Balance: <strong id="dispBalance" style="color: #00ff88;">0</strong> Units</p>
-    <button onclick="logout()" style="background: #6c757d;">Logout</button>
+    <div style="display: flex; justify-content: space-between; align-items: center;">
+      <div>
+        <h4 style="margin:0;"><span id="dispUser"></span></h4>
+        <small style="color: #38bdf8;" id="dispPlayerId"></small>
+      </div>
+      <div>
+        <span style="color: #4ade80; font-weight: bold; font-size: 18px;" id="dispBalance">0</span> Units
+      </div>
+    </div>
+    <button onclick="logout()" style="background: #64748b; margin-top: 10px; padding: 5px;">Logout</button>
 
-    <hr style="border-color: #333; margin: 15px 0;">
+    <hr style="border-color: #334155; margin: 15px 0;">
 
     <h4>Deposit / Withdraw Request</h4>
     <select id="txType">
@@ -48,64 +58,102 @@
       <option value="withdraw">Withdraw</option>
     </select>
     <input type="number" id="txAmount" placeholder="Amount">
-    <button onclick="requestTx()">Submit Request</button>
+    <button onclick="requestTx()" style="background: #d97706;">Submit Request</button>
 
-    <h4>Transaction History</h4>
-    <table id="historyTable">
-      <thead><tr><th>Type</th><th>Amount</th><th>Status</th><th>Date</th></tr></thead>
-      <tbody></tbody>
-    </table>
+    <details style="margin-top: 10px;">
+      <summary style="cursor:pointer; color: #94a3b8;">Transaction History</summary>
+      <table id="historyTable">
+        <thead><tr><th>Type</th><th>Amount</th><th>Status</th></tr></thead>
+        <tbody></tbody>
+      </table>
+    </details>
   </div>
 
   <!-- Admin Panel -->
-  <div id="adminPanel" class="card hidden" style="border-color: #ff9900;">
-    <h3 style="color: #ff9900;">⚙️ Admin Control Panel</h3>
+  <div id="adminPanel" class="card hidden" style="border-color: #f59e0b;">
+    <h3 style="color: #f59e0b;">⚙️ Admin Panel</h3>
     
     <h4>Direct Unit Transfer</h4>
     <input type="text" id="admPlayerId" placeholder="Target Player ID">
     <input type="number" id="admAmount" placeholder="Amount (+/-)">
-    <button onclick="directTransfer()">Update Balance</button>
+    <button onclick="directTransfer()" style="background: #f59e0b;">Update Balance</button>
 
     <h4>Pending Requests</h4>
     <table id="pendingTable">
-      <thead><tr><th>User</th><th>Player ID</th><th>Type</th><th>Amount</th><th>Action</th></tr></thead>
+      <thead><tr><th>User</th><th>ID</th><th>Type</th><th>Amt</th><th>Action</th></tr></thead>
       <tbody></tbody>
     </table>
   </div>
 
   <!-- Game Arena -->
   <div id="gamePanel" class="card hidden">
-    <h2>🎯 Game Round: <span id="gameRound">-</span></h2>
-    <h3 style="color: #ffcc00;">Timer: <span id="gameTimer">15</span>s</h3>
-
-    <div>
-      <input type="number" id="betAmount" placeholder="Bet Amount">
-      <button class="btn-red" onclick="placeBet('RED')">Bet RED (x2)</button>
-      <button class="btn-blue" onclick="placeBet('BLUE')">Bet BLUE (x2)</button>
+    <div style="text-align: center;">
+      <h3>Round: <span id="gameRound" style="color: #38bdf8;">-</span></h3>
+      <h1 style="color: #facc15; font-size: 40px; margin: 5px 0;" id="gameTimer">60</h1>
+      <small id="betState" style="color: #94a3b8;">Select a number (0-9) to bet</small>
     </div>
-    <p id="betStatus" style="color: #aaa;"></p>
+
+    <!-- 0-9 Number Buttons -->
+    <div class="number-grid">
+      <div class="num-btn" onclick="selectNumber(0)">0</div>
+      <div class="num-btn" onclick="selectNumber(1)">1</div>
+      <div class="num-btn" onclick="selectNumber(2)">2</div>
+      <div class="num-btn" onclick="selectNumber(3)">3</div>
+      <div class="num-btn" onclick="selectNumber(4)">4</div>
+      <div class="num-btn" onclick="selectNumber(5)">5</div>
+      <div class="num-btn" onclick="selectNumber(6)">6</div>
+      <div class="num-btn" onclick="selectNumber(7)">7</div>
+      <div class="num-btn" onclick="selectNumber(8)">8</div>
+      <div class="num-btn" onclick="selectNumber(9)">9</div>
+    </div>
+
+    <input type="number" id="betAmount" placeholder="Bet Amount (Units)">
+    <button onclick="submitBet()" style="background: #10b981; font-size: 16px;">Confirm Bet (9x Win)</button>
+    <p id="betStatus" style="text-align: center; color: #38bdf8;"></p>
   </div>
 
-  <!-- Popup Modal -->
+  <!-- Result Modal -->
   <div id="resultModal" class="popup hidden">
     <div class="popup-content">
       <h2 id="modalTitle"></h2>
       <p id="modalBody"></p>
-      <button onclick="closeModal()">Close</button>
+      <button onclick="closeModal()" style="width: auto; padding: 8px 20px;">Close</button>
     </div>
   </div>
 
   <script>
     const socket = io();
-    let currentUser = null;
+    let selectedNum = null;
 
     socket.on('timerUpdate', (data) => {
       document.getElementById('gameRound').innerText = data.round;
       document.getElementById('gameTimer').innerText = data.timer;
+
+      if(data.timer <= 10) {
+        document.getElementById('betState').innerText = "❌ Betting Closed";
+        document.getElementById('betState').style.color = "#ef4444";
+      } else {
+        document.getElementById('betState').innerText = "✅ Betting Open";
+        document.getElementById('betState').style.color = "#22c55e";
+      }
     });
 
+    function selectNumber(num) {
+      selectedNum = num;
+      document.querySelectorAll('.num-btn').forEach((btn, idx) => {
+        if(idx === num) btn.classList.add('selected');
+        else btn.classList.remove('selected');
+      });
+    }
+
+    function submitBet() {
+      if(selectedNum === null) return alert("Please select a number first!");
+      const amount = document.getElementById('betAmount').value;
+      socket.emit('placeBet', { number: selectedNum, amount });
+    }
+
     socket.on('betConfirmed', (data) => {
-      document.getElementById('betStatus').innerText = `Placed ${data.amount} units on ${data.choice}`;
+      document.getElementById('betStatus').innerText = `Placed ${data.amount} units on Number [ ${data.number} ]`;
     });
 
     socket.on('errorMsg', (msg) => { alert(msg); });
@@ -117,12 +165,12 @@
 
       if (data.win) {
         title.innerText = '🎉 YOU WIN!';
-        title.style.color = '#00ff88';
-        body.innerText = `Winning Choice: ${data.resultChoice}\nYou won +${data.amount} Units!`;
+        title.style.color = '#4ade80';
+        body.innerText = `Winning Number: [ ${data.winningNumber} ]\nYour Pick: [ ${data.selectedNumber} ]\nYou won +${data.amount} Units!`;
       } else {
         title.innerText = '❌ YOU LOST';
-        title.style.color = '#dc3545';
-        body.innerText = `Winning Choice: ${data.resultChoice}\nYou lost -${data.amount} Units.`;
+        title.style.color = '#ef4444';
+        body.innerText = `Winning Number: [ ${data.winningNumber} ]\nYour Pick: [ ${data.selectedNumber} ]\nYou lost -${data.amount} Units.`;
       }
       modal.classList.remove('hidden');
       loadProfile();
@@ -130,6 +178,7 @@
 
     socket.on('gameFinished', () => {
       document.getElementById('betStatus').innerText = '';
+      selectNumber(null);
     });
 
     function closeModal() {
@@ -157,27 +206,24 @@
         body: JSON.stringify({ username: u, password: p })
       });
       const data = await res.json();
-      if (data.success) {
-        loadProfile();
-      } else {
-        alert(data.error);
-      }
+      if (data.success) loadProfile();
+      else alert(data.error);
     }
 
     async function loadProfile() {
       const res = await fetch('/api/me');
       if (!res.ok) return;
 
-      currentUser = await res.json();
+      const user = await res.json();
       document.getElementById('authPanel').classList.add('hidden');
       document.getElementById('userPanel').classList.remove('hidden');
       document.getElementById('gamePanel').classList.remove('hidden');
 
-      document.getElementById('dispUser').innerText = currentUser.username;
-      document.getElementById('dispPlayerId').innerText = currentUser.player_id;
-      document.getElementById('dispBalance').innerText = currentUser.balance;
+      document.getElementById('dispUser').innerText = user.username;
+      document.getElementById('dispPlayerId').innerText = user.player_id;
+      document.getElementById('dispBalance').innerText = user.balance;
 
-      if (currentUser.role === 'admin') {
+      if (user.role === 'admin') {
         document.getElementById('adminPanel').classList.remove('hidden');
         loadPendingTxs();
       }
@@ -212,7 +258,6 @@
           <td>${r.type}</td>
           <td>${r.amount}</td>
           <td>${r.status}</td>
-          <td>${new Date(r.created_at).toLocaleString()}</td>
         </tr>
       `).join('');
     }
@@ -227,7 +272,7 @@
           <td>${r.player_id}</td>
           <td>${r.type}</td>
           <td>${r.amount}</td>
-          <td><button onclick="approveTx(${r.id})">Approve</button></td>
+          <td><button onclick="approveTx(${r.id})" style="padding: 2px 5px;">Approve</button></td>
         </tr>
       `).join('');
     }
@@ -255,12 +300,6 @@
       alert(data.message || data.error);
     }
 
-    function placeBet(choice) {
-      const amount = document.getElementById('betAmount').value;
-      socket.emit('placeBet', { choice, amount });
-    }
-
-    // Auto load session on refresh
     loadProfile();
   </script>
 </body>
