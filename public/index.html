@@ -1,510 +1,268 @@
 <!DOCTYPE html>
-<html lang="my">
+<html lang="en">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width,initial-scale=1">
-  <title>CKLottery</title>
-
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Realtime Game Demo System</title>
+  <script src="/socket.io/socket.io.js"></script>
   <style>
-    * {
-      box-sizing: border-box;
-      margin: 0;
-      padding: 0;
-      font-family: Arial, "Noto Sans Myanmar", sans-serif;
-    }
-
-    body {
-      min-height: 100vh;
-      background: #080c15;
-      color: white;
-      display: flex;
-      justify-content: center;
-      align-items: center;
-      padding: 20px;
-    }
-
-    .box {
-      width: 100%;
-      max-width: 390px;
-      background: #111827;
-      border: 1px solid #293548;
-      border-radius: 22px;
-      padding: 24px;
-      text-align: center;
-    }
-
-    h1 {
-      color: #f97316;
-      margin-bottom: 8px;
-    }
-
-    .sub {
-      color: #9ca3af;
-      margin-bottom: 20px;
-      font-size: 14px;
-    }
-
-    input {
-      width: 100%;
-      padding: 14px;
-      margin: 7px 0;
-      border-radius: 12px;
-      border: 1px solid #374151;
-      background: #0b1220;
-      color: white;
-      outline: none;
-      text-align: center;
-      font-size: 15px;
-    }
-
-    button {
-      width: 100%;
-      padding: 14px;
-      margin-top: 10px;
-      border: 0;
-      border-radius: 12px;
-      background: linear-gradient(135deg,#f59e0b,#ea580c);
-      color: white;
-      font-weight: 900;
-      font-size: 15px;
-      cursor: pointer;
-    }
-
-    .toggle {
-      background: transparent;
-      color: #60a5fa;
-      margin-top: 8px;
-    }
-
-    #message {
-      min-height: 22px;
-      margin-top: 12px;
-      color: #fbbf24;
-      font-size: 14px;
-    }
-
-    #home {
-      display: none;
-    }
-
-    .balance {
-      margin: 20px 0;
-      padding: 18px;
-      border-radius: 16px;
-      background: #0b1220;
-      border: 1px solid #334155;
-    }
-
-    .unit {
-      color: #fbbf24;
-      font-size: 28px;
-      font-weight: 900;
-      margin-top: 8px;
-    }
-
-    .admin {
-      color: #fb923c;
-      font-weight: bold;
-    }
-
-    .logout {
-      background: #374151;
-    }
+    body { font-family: Arial, sans-serif; background: #121212; color: #fff; margin: 0; padding: 15px; }
+    .card { background: #1e1e1e; padding: 15px; margin-bottom: 15px; border-radius: 8px; border: 1px solid #333; }
+    input, button, select { padding: 8px 12px; margin: 4px; border-radius: 4px; border: 1px solid #444; background: #222; color: #fff; }
+    button { cursor: pointer; background: #007bff; border: none; }
+    button:hover { background: #0056b3; }
+    .btn-red { background: #dc3545; }
+    .btn-blue { background: #0d6efd; }
+    .hidden { display: none; }
+    table { width: 100%; border-collapse: collapse; margin-top: 10px; }
+    th, td { border: 1px solid #444; padding: 8px; text-align: left; }
+    .popup { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.8); display: flex; align-items: center; justify-content: center; }
+    .popup-content { background: #222; padding: 25px; border-radius: 8px; text-align: center; border: 2px solid #555; }
   </style>
 </head>
-
 <body>
 
-  <!-- LOGIN / REGISTER -->
+  <h1>🎮 Realtime Game System</h1>
 
-  <div class="box" id="authBox">
-
-    <h1>👑 CKLOTTERY</h1>
-
-    <div class="sub" id="authTitle">
-      Login ဝင်မည်
-    </div>
-
-    <input
-      id="phone"
-      type="text"
-      placeholder="ဖုန်းနံပါတ်"
-    >
-
-    <input
-      id="password"
-      type="password"
-      placeholder="စကားဝှက်"
-    >
-
-    <button onclick="submitAuth()" id="submitBtn">
-      Login ဝင်မည်
-    </button>
-
-    <button
-      class="toggle"
-      onclick="toggleMode()"
-      id="toggleBtn"
-    >
-      အကောင့်အသစ်ဖွင့်မည်
-    </button>
-
-    <div id="message"></div>
-
+  <!-- Auth Panel -->
+  <div id="authPanel" class="card">
+    <h3>Register / Login</h3>
+    <input type="text" id="username" placeholder="Username">
+    <input type="password" id="password" placeholder="Password">
+    <button onclick="register()">Register</button>
+    <button onclick="login()">Login</button>
   </div>
 
+  <!-- User Dashboard -->
+  <div id="userPanel" class="card hidden">
+    <h3>Welcome, <span id="dispUser"></span></h3>
+    <p>Player ID: <strong id="dispPlayerId" style="color: #00f2fe;"></strong></p>
+    <p>Unit Balance: <strong id="dispBalance" style="color: #00ff88;">0</strong> Units</p>
+    <button onclick="logout()" style="background: #6c757d;">Logout</button>
 
-  <!-- HOME -->
+    <hr style="border-color: #333; margin: 15px 0;">
 
-  <div class="box" id="home">
+    <h4>Deposit / Withdraw Request</h4>
+    <select id="txType">
+      <option value="deposit">Deposit</option>
+      <option value="withdraw">Withdraw</option>
+    </select>
+    <input type="number" id="txAmount" placeholder="Amount">
+    <button onclick="requestTx()">Submit Request</button>
 
-    <h1>👑 CKLOTTERY</h1>
-
-    <div class="sub">
-      အကောင့်ဝင်ရောက်ပြီးပါပြီ
-    </div>
-
-    <div id="userInfo"></div>
-
-    <div class="balance">
-
-      <div>
-        လက်ကျန် Demo Unit
-      </div>
-
-      <div class="unit" id="unit">
-        0
-      </div>
-
-    </div>
-
-    <button
-      class="logout"
-      onclick="logout()"
-    >
-      Logout
-    </button>
-
+    <h4>Transaction History</h4>
+    <table id="historyTable">
+      <thead><tr><th>Type</th><th>Amount</th><th>Status</th><th>Date</th></tr></thead>
+      <tbody></tbody>
+    </table>
   </div>
 
+  <!-- Admin Panel -->
+  <div id="adminPanel" class="card hidden" style="border-color: #ff9900;">
+    <h3 style="color: #ff9900;">⚙️ Admin Control Panel</h3>
+    
+    <h4>Direct Unit Transfer</h4>
+    <input type="text" id="admPlayerId" placeholder="Target Player ID">
+    <input type="number" id="admAmount" placeholder="Amount (+/-)">
+    <button onclick="directTransfer()">Update Balance</button>
 
-<script>
+    <h4>Pending Requests</h4>
+    <table id="pendingTable">
+      <thead><tr><th>User</th><th>Player ID</th><th>Type</th><th>Amount</th><th>Action</th></tr></thead>
+      <tbody></tbody>
+    </table>
+  </div>
 
-let registerMode = false;
-let currentUser = null;
+  <!-- Game Arena -->
+  <div id="gamePanel" class="card hidden">
+    <h2>🎯 Game Round: <span id="gameRound">-</span></h2>
+    <h3 style="color: #ffcc00;">Timer: <span id="gameTimer">15</span>s</h3>
 
+    <div>
+      <input type="number" id="betAmount" placeholder="Bet Amount">
+      <button class="btn-red" onclick="placeBet('RED')">Bet RED (x2)</button>
+      <button class="btn-blue" onclick="placeBet('BLUE')">Bet BLUE (x2)</button>
+    </div>
+    <p id="betStatus" style="color: #aaa;"></p>
+  </div>
 
-/* =========================
-   MESSAGE
-========================= */
+  <!-- Popup Modal -->
+  <div id="resultModal" class="popup hidden">
+    <div class="popup-content">
+      <h2 id="modalTitle"></h2>
+      <p id="modalBody"></p>
+      <button onclick="closeModal()">Close</button>
+    </div>
+  </div>
 
-function message(text) {
+  <script>
+    const socket = io();
+    let currentUser = null;
 
-  document.getElementById(
-    "message"
-  ).textContent = text;
+    socket.on('timerUpdate', (data) => {
+      document.getElementById('gameRound').innerText = data.round;
+      document.getElementById('gameTimer').innerText = data.timer;
+    });
 
-}
+    socket.on('betConfirmed', (data) => {
+      document.getElementById('betStatus').innerText = `Placed ${data.amount} units on ${data.choice}`;
+    });
 
+    socket.on('errorMsg', (msg) => { alert(msg); });
 
-/* =========================
-   LOGIN / REGISTER TOGGLE
-========================= */
+    socket.on('roundResult', (data) => {
+      const modal = document.getElementById('resultModal');
+      const title = document.getElementById('modalTitle');
+      const body = document.getElementById('modalBody');
 
-function toggleMode() {
+      if (data.win) {
+        title.innerText = '🎉 YOU WIN!';
+        title.style.color = '#00ff88';
+        body.innerText = `Winning Choice: ${data.resultChoice}\nYou won +${data.amount} Units!`;
+      } else {
+        title.innerText = '❌ YOU LOST';
+        title.style.color = '#dc3545';
+        body.innerText = `Winning Choice: ${data.resultChoice}\nYou lost -${data.amount} Units.`;
+      }
+      modal.classList.remove('hidden');
+      loadProfile();
+    });
 
-  registerMode = !registerMode;
+    socket.on('gameFinished', () => {
+      document.getElementById('betStatus').innerText = '';
+    });
 
-  if (registerMode) {
-
-    document.getElementById(
-      "authTitle"
-    ).textContent =
-      "အကောင့်အသစ်ဖွင့်မည်";
-
-    document.getElementById(
-      "submitBtn"
-    ).textContent =
-      "Register ပြုလုပ်မည်";
-
-    document.getElementById(
-      "toggleBtn"
-    ).textContent =
-      "အကောင့်ရှိပြီးသားပါ — Login ဝင်မည်";
-
-  } else {
-
-    document.getElementById(
-      "authTitle"
-    ).textContent =
-      "Login ဝင်မည်";
-
-    document.getElementById(
-      "submitBtn"
-    ).textContent =
-      "Login ဝင်မည်";
-
-    document.getElementById(
-      "toggleBtn"
-    ).textContent =
-      "အကောင့်အသစ်ဖွင့်မည်";
-
-  }
-
-  message("");
-
-}
-
-
-/* =========================
-   SUBMIT
-========================= */
-
-async function submitAuth() {
-
-  const phone =
-    document.getElementById(
-      "phone"
-    ).value.trim();
-
-  const password =
-    document.getElementById(
-      "password"
-    ).value.trim();
-
-
-  if (!phone || !password) {
-
-    message(
-      "ဖုန်းနံပါတ်နဲ့ Password ဖြည့်ပါ"
-    );
-
-    return;
-
-  }
-
-
-  message("လုပ်ဆောင်နေသည်...");
-
-
-  const endpoint =
-    registerMode
-      ? "/api/register"
-      : "/api/login";
-
-
-  try {
-
-    const response =
-      await fetch(
-        endpoint,
-        {
-          method: "POST",
-
-          headers: {
-            "Content-Type":
-              "application/json"
-          },
-
-          body: JSON.stringify({
-            phone,
-            password
-          })
-        }
-      );
-
-
-    const data =
-      await response.json();
-
-
-    if (!data.success) {
-
-      message(
-        data.message ||
-        "လုပ်ဆောင်၍ မရပါ"
-      );
-
-      return;
-
+    function closeModal() {
+      document.getElementById('resultModal').classList.add('hidden');
     }
 
-
-    currentUser = data.user;
-
-
-    localStorage.setItem(
-      "user_phone",
-      currentUser.phone
-    );
-
-
-    showHome();
-
-  }
-
-  catch (error) {
-
-    console.error(error);
-
-    message(
-      "Server နှင့် ချိတ်ဆက်၍ မရပါ"
-    );
-
-  }
-
-}
-
-
-/* =========================
-   SHOW HOME
-========================= */
-
-function showHome() {
-
-  document.getElementById(
-    "authBox"
-  ).style.display = "none";
-
-
-  document.getElementById(
-    "home"
-  ).style.display = "block";
-
-
-  document.getElementById(
-    "unit"
-  ).textContent =
-    Number(
-      currentUser.unit || 0
-    ).toLocaleString();
-
-
-  if (
-    currentUser.role === "admin"
-  ) {
-
-    document.getElementById(
-      "userInfo"
-    ).innerHTML = `
-      <div class="admin">
-        👑 ADMIN ACCOUNT
-      </div>
-      <div style="margin-top:6px;color:#9ca3af">
-        ${currentUser.phone}
-      </div>
-    `;
-
-  } else {
-
-    document.getElementById(
-      "userInfo"
-    ).innerHTML = `
-      <div>
-        👤 ${currentUser.phone}
-      </div>
-
-      <div style="
-        margin-top:6px;
-        color:#64748b;
-        font-size:13px;
-      ">
-        User ID: ${currentUser.id}
-      </div>
-    `;
-
-  }
-
-}
-
-
-/* =========================
-   LOGOUT
-========================= */
-
-function logout() {
-
-  localStorage.removeItem(
-    "user_phone"
-  );
-
-  currentUser = null;
-
-  document.getElementById(
-    "home"
-  ).style.display = "none";
-
-
-  document.getElementById(
-    "authBox"
-  ).style.display = "block";
-
-
-  document.getElementById(
-    "phone"
-  ).value = "";
-
-  document.getElementById(
-    "password"
-  ).value = "";
-
-  message("");
-
-}
-
-
-/* =========================
-   AUTO LOGIN
-========================= */
-
-async function autoLogin() {
-
-  const phone =
-    localStorage.getItem(
-      "user_phone"
-    );
-
-
-  if (!phone) return;
-
-
-  try {
-
-    const response =
-      await fetch(
-        "/api/user/" +
-        encodeURIComponent(phone)
-      );
-
-
-    const data =
-      await response.json();
-
-
-    if (data.success) {
-
-      currentUser = data.user;
-
-      showHome();
-
+    async function register() {
+      const u = document.getElementById('username').value;
+      const p = document.getElementById('password').value;
+      const res = await fetch('/api/register', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ username: u, password: p })
+      });
+      const data = await res.json();
+      alert(data.message || data.error);
     }
 
-  }
+    async function login() {
+      const u = document.getElementById('username').value;
+      const p = document.getElementById('password').value;
+      const res = await fetch('/api/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ username: u, password: p })
+      });
+      const data = await res.json();
+      if (data.success) {
+        loadProfile();
+      } else {
+        alert(data.error);
+      }
+    }
 
-  catch (error) {
+    async function loadProfile() {
+      const res = await fetch('/api/me');
+      if (!res.ok) return;
 
-    console.log(
-      "Auto login unavailable"
-    );
+      currentUser = await res.json();
+      document.getElementById('authPanel').classList.add('hidden');
+      document.getElementById('userPanel').classList.remove('hidden');
+      document.getElementById('gamePanel').classList.remove('hidden');
 
-  }
+      document.getElementById('dispUser').innerText = currentUser.username;
+      document.getElementById('dispPlayerId').innerText = currentUser.player_id;
+      document.getElementById('dispBalance').innerText = currentUser.balance;
 
-}
+      if (currentUser.role === 'admin') {
+        document.getElementById('adminPanel').classList.remove('hidden');
+        loadPendingTxs();
+      }
 
+      loadHistory();
+    }
 
-autoLogin();
+    async function logout() {
+      await fetch('/api/logout', { method: 'POST' });
+      location.reload();
+    }
 
-</script>
+    async function requestTx() {
+      const type = document.getElementById('txType').value;
+      const amount = document.getElementById('txAmount').value;
+      const res = await fetch('/api/request-transaction', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ type, amount })
+      });
+      const data = await res.json();
+      alert(data.message || data.error);
+      loadHistory();
+    }
 
+    async function loadHistory() {
+      const res = await fetch('/api/my-history');
+      const rows = await res.json();
+      const tbody = document.querySelector('#historyTable tbody');
+      tbody.innerHTML = rows.map(r => `
+        <tr>
+          <td>${r.type}</td>
+          <td>${r.amount}</td>
+          <td>${r.status}</td>
+          <td>${new Date(r.created_at).toLocaleString()}</td>
+        </tr>
+      `).join('');
+    }
+
+    async function loadPendingTxs() {
+      const res = await fetch('/api/admin/pending-transactions');
+      const rows = await res.json();
+      const tbody = document.querySelector('#pendingTable tbody');
+      tbody.innerHTML = rows.map(r => `
+        <tr>
+          <td>${r.username}</td>
+          <td>${r.player_id}</td>
+          <td>${r.type}</td>
+          <td>${r.amount}</td>
+          <td><button onclick="approveTx(${r.id})">Approve</button></td>
+        </tr>
+      `).join('');
+    }
+
+    async function approveTx(txId) {
+      const res = await fetch('/api/admin/approve-transaction', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ txId })
+      });
+      const data = await res.json();
+      alert(data.message || data.error);
+      loadPendingTxs();
+    }
+
+    async function directTransfer() {
+      const playerId = document.getElementById('admPlayerId').value;
+      const amount = document.getElementById('admAmount').value;
+      const res = await fetch('/api/admin/direct-transfer', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ playerId, amount })
+      });
+      const data = await res.json();
+      alert(data.message || data.error);
+    }
+
+    function placeBet(choice) {
+      const amount = document.getElementById('betAmount').value;
+      socket.emit('placeBet', { choice, amount });
+    }
+
+    // Auto load session on refresh
+    loadProfile();
+  </script>
 </body>
 </html>
+
