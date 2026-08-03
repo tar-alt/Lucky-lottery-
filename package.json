@@ -1,5 +1,5 @@
 {
-  "name": "realtime-game-demo",
+  "name": "ck-lottery-1min",
   "version": "1.0.0",
   "main": "server.js",
   "scripts": {
@@ -13,3 +13,4 @@
     "sqlite3": "^5.1.6"
   }
 }
+
